@@ -1,16 +1,19 @@
 # Script written by Raphael Morard, Christiane Hassenrück and Chiara Vanni
+# Loading packages 
 # Data tidying
 library(tidyverse)
 library(dplyr)
 library(textshape)
+library("janitor")
 
+# Networks
 library(igraph)
 library(reshape)
 library(CINNA)
 
+# Bioinformatics
 library("dada2")
 library("seqRFLP")
-library("data")
 
 # To produce maps
 library(maps)
@@ -18,22 +21,18 @@ library(parallel)
 library(hexbin)
 library(scales)
 
-library("janitor")
-
-# Loading the data
+# Loading the datasets
 Data_sanger                         <- readxl::read_xlsx(path = "Table S1.xlsx", sheet = 1,skip = 1, col_types="guess") %>% arrange(Internal_ID)
 RFLP_data                           <- readxl::read_xlsx(path = "Table S2.xlsx", sheet = 1, col_types="guess") 
-
 Geography_Curated                   <- readxl::read_xlsx(path = "Table S4.xlsx", sheet = 1, col_types="guess")
-
 Molecular_Nomenclature              <- readxl::read_xlsx(path = "Table S5.xlsx", sheet = 1, col_types="guess")
 Equivalence_Nomenclature            <- readxl::read_xlsx(path = "Table S5.xlsx", sheet = 3, col_types="guess")
-
 ASV_Occurence                       <- readxl::read_xlsx(path = "Table S6.xlsx", sheet = 1, col_types="guess")
 PF_ASV_seq                          <- readxl::read_xlsx(path = "Table S6.xlsx", sheet = 2, col_types="guess")
 Molecular_Nomenclature_Novel_ASVs   <- readxl::read_xlsx(path = "Table S6.xlsx", sheet = 3, col_types="guess")
 
-# importing dataset # The order of the row is sorted using the unique internal provided for each sequence to make sure that the table is processed in the same way at each iteration
+# importing dataset 
+# The order of the row is sorted using the unique internal provided for each sequence to make sure that the table is processed in the same way at each iteration
 # Assess the quality of each individual region to select Basetypes
 # Subset the dataset for the coverage and sequence of each region
 
@@ -209,13 +208,6 @@ Curated_sequences <- Occurence_basetypes_specimens %>%
   distinct(Basetype_ID, .keep_all = TRUE) %>% 
   unite("Name_seq", Basetype_ID,Basegroup_ID,Genus_curated,species_curated, remove = FALSE,sep= "|")
 
-        ################################################################
-        #                                                              #
-        # Beginning of script 3 with import of Molecular Nomenclature  #
-        #                                                              #
-        ################################################################
-
-
 # Merge all table to have the molecular nomenclature together with the sequences
 Key_assignement <- full_join(Curated_sequences, Molecular_Nomenclature %>% select(Basetype_ID, MOTU_lvl_1, MOTU_lvl_2, MOTU_lvl_3, MOTUs)) %>% 
   left_join(Data_sanger %>% select(Internal_ID,`37F_seq`))     %>% 
@@ -235,7 +227,7 @@ Key_assignement <- full_join(Curated_sequences, Molecular_Nomenclature %>% selec
 Key_assignement_MOTUS_lvl3 <- Key_assignement %>% 
   unite("Taxo_lvl3", Clade_curated,Genus_curated,species_curated, MOTU_lvl_1, MOTU_lvl_2, MOTU_lvl_3, remove = FALSE,sep= "|") %>%
   select(Taxo_lvl3,  `37F_seq`:`49E_seq`)
-  
+
 # Identify individual sequence pattern that occur only in a single MOTU lvl3 and that is therefore diagnostic
 
 List_37F_Diagnostic_MOTU3 <- Key_assignement_MOTUS_lvl3 %>% 
@@ -456,9 +448,9 @@ DB_assigned_lvl2 <-  rbind(DB_assigned_lvl2_37F) %>%    filter(Quality_assigneme
   rbind(DB_assigned_lvl2_43E) %>%    filter(Quality_assignement != 0) %>%
   rbind(DB_assigned_lvl2_45E47F) %>% filter(Quality_assignement != 0) %>% 
   rbind(DB_assigned_lvl2_49E) %>%    filter(Quality_assignement != 0)
-  
+
 # Final round to assign all possible data to level 1
-  
+
 # Now we produce a file with only necessary informations
 Key_assignement_MOTUS_lvl1 <- Key_assignement %>% 
   unite("Taxo_lvl1", Clade_curated,Genus_curated,species_curated, MOTU_lvl_1, remove = FALSE,sep= "|") %>%
@@ -626,7 +618,7 @@ Check_co_occurence_lvl3 <- DB_all_assignement %>% select(Voucher_code, TP_lvl3) 
 List_wrong_attribution <- rbind((Check_co_occurence_lvl3 %>% rownames_to_column("Voucher_code") %>% select(Voucher_code)),  
                                 (Check_co_occurence_lvl2 %>% rownames_to_column("Voucher_code") %>% select(Voucher_code)), 
                                 (Check_co_occurence_lvl1 %>% rownames_to_column("Voucher_code") %>% select(Voucher_code))) %>% distinct()
-  
+
 List_to_be_re_assigned <- inner_join(DB_all_assignement, List_wrong_attribution)
 DB_correct_matches <- anti_join(DB_all_assignement, List_wrong_attribution)
 
@@ -726,7 +718,6 @@ Check_co_occurence_lvl1 <- DB_all_assignement %>% select(Voucher_code, TP_lvl1) 
   filter(sum != 1)
 
 # then lvl-2
-# write.table(Check_co_occurence_lvl1, "checking_lvl1.txt")
 Check_co_occurence_lvl2 <- DB_all_assignement %>% select(Voucher_code, TP_lvl2) %>% filter(TP_lvl2 != "Not_Attributed") %>% 
   distinct() %>% 
   mutate(pres=1) %>% 
@@ -735,7 +726,6 @@ Check_co_occurence_lvl2 <- DB_all_assignement %>% select(Voucher_code, TP_lvl2) 
   mutate(sum = rowSums(.)) %>% 
   filter(sum != 1)
 
-write.table(Check_co_occurence_lvl2, "checking_lvl2.txt")
 # and lvl-3
 Check_co_occurence_lvl3 <- DB_all_assignement %>% select(Voucher_code, TP_lvl3) %>% filter(TP_lvl3 != "Not_Attributed") %>% 
   distinct() %>% 
@@ -761,9 +751,9 @@ Sumarize_Sanger_attribution <- rbind(DB_all_assignement %>%  filter(TP_lvl3 != "
 
 Sumarize_Sanger_attribution <- DB_all_assignement %>% count(Quality_assignement)
 
-   ########################################################################
-   #                  Import and Format Genotyping data                   #
-   ########################################################################
+########################################################################
+#                  Import and Format Genotyping data                   #
+########################################################################
 
 # Here we translate the RFLP data into their taxonomic equivalent into the novel molecular Nomenclature
 RFLP_data_Formated <- RFLP_data %>%
@@ -777,16 +767,16 @@ RFLP_data_Formated <- RFLP_data %>%
   filter(n_observation != 0)
 
 
-    ##############################################################################
-    #               Integrating V9 data from Metabarcoding dataset               #
-    ##############################################################################
+##############################################################################
+#               Integrating V9 data from Metabarcoding dataset               #
+##############################################################################
 
 # Extract the number of observation for each PF ASV
 N_Obs_ASV <-  ASV_Occurence %>% select(1:2084) %>%  gather("Samples", "reads", 2:2084) %>% filter(reads != "0") %>% select(ASV_ID) %>% count(ASV_ID) %>% dplyr::rename("N_obs_samples" = "n")
 
 # Import ASV segmented and keep only ASVs that occured more than once in the entire dataset
 ASV_data <- PF_ASV_seq %>% left_join(N_Obs_ASV) %>% filter(N_obs_samples >"1")
-  
+
 # Used same strategy as with the sanger to match the exact pattern first.
 ASV_MOTU_lvl3 <- left_join(List_49E_Diagnostic_MOTU3,ASV_data %>% select(ASV_ID, `49E_seq`)) %>% filter(ASV_ID !="NA")    
 ASV_MOTU_lvl2 <- left_join(List_49E_Diagnostic_MOTU2,ASV_data %>% select(ASV_ID, `49E_seq`)  %>% anti_join(ASV_MOTU_lvl3)) %>% filter(ASV_ID !="NA")
@@ -874,9 +864,9 @@ ASV_Biogeography <- PF_ASV_Occurence %>%
 ASV_Matrix <- ASV_Biogeography %>% select(-"Original_Sample_ID") %>% mutate_if(is.character, as.numeric)
 
 ASV_Biogeography_final <- cbind((ASV_Biogeography %>% select(Original_Sample_ID)), ASV_Matrix) %>% 
-                           group_by(Original_Sample_ID) %>%
-                           summarise_each(funs(sum)) %>% 
-                           drop_na()
+  group_by(Original_Sample_ID) %>%
+  summarise_each(funs(sum)) %>% 
+  drop_na()
 
 # Now do a long list and merge the molecular taxonomy
 ASV_Occurence_taxo <- ASV_Biogeography_final %>% gather("ASV_ID", "reads", 2:143) %>% 
@@ -903,17 +893,7 @@ RFLP_Occurence_taxo <- RFLP_data_Formated %>%
 All_occurences_final <- rbind(RFLP_Occurence_taxo, 
                               Sanger_Occurence_taxo, 
                               ASV_Occurence_taxo) %>% distinct() %>%
-                              dplyr::rename("Original Sample ID"  = "Original_Sample_ID")
-
-# Export occurences to make them available without having to run the scipt
-write.xlsx(
-  All_occurences_final_geography %>%  
-    as.data.frame(),
-  file="../Table_S07bis.xlsx",
-  sheetName = "Sheet1",
-  col.names = TRUE,
-  row.names = FALSE
-)
+  dplyr::rename("Original Sample ID"  = "Original_Sample_ID")
 
 # Merge with geographical metadata
 All_occurences_final_geography <- All_occurences_final  %>% 
@@ -1003,4 +983,3 @@ maps_level1 <- lapply(level1.list, map_occurrences, level="Level1")
 maps_level2 <- lapply(level2.list, map_occurrences, level="Level2")
 maps_level3 <- lapply(level3.list, map_occurrences, level="Level3")
 maps_levelMS <- lapply(levelMS.list, map_occurrences, level="LevelMS")
-
